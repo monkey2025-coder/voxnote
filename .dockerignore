@@ -1,0 +1,25 @@
+# Git
+.git
+.github
+
+# 文档
+*.md
+
+# Web
+web/node_modules
+web/dist
+
+# Python
+server/**/__pycache__
+server/db
+server/uploads
+server/web_dist
+
+# Android
+android/.gradle
+android/**/build
+android/local.properties
+
+# IDE
+.vscode
+.idea

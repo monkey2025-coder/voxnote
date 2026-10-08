@@ -1,9 +1,10 @@
 from pathlib import Path
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# JWT 密钥,生产环境应通过环境变量覆盖
-SECRET_KEY = "dev-secret-key-change-in-production"
+# JWT 密钥,生产环境必须通过环境变量覆盖
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
