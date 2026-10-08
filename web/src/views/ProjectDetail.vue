@@ -9,10 +9,39 @@
 
     <el-empty v-if="!loading && notes.length === 0" description="这个项目还没有语音记录,请先在 App 端录入" />
 
+    <!-- 选择工具栏:有语音时始终显示,全选 + 计数;有选中时额外显示批量操作 -->
+    <div v-if="notes.length" class="batch-bar">
+      <el-checkbox :model-value="isAllSelected" :indeterminate="isIndeterminate" @change="toggleAll">
+        全选
+      </el-checkbox>
+      <span class="batch-count">已选 {{ selected.length }} / {{ notes.length }} 条</span>
+      <el-button size="small" text @click="invertSelection">反选</el-button>
+      <template v-if="selected.length">
+        <el-popconfirm title="确认删除选中的语音?此操作不可撤销" @confirm="batchDelete">
+          <template #reference>
+            <el-button size="small" type="danger">批量删除</el-button>
+          </template>
+        </el-popconfirm>
+        <el-dropdown trigger="click" @command="(t) => batchMove(t)">
+          <el-button size="small">批量移动到…</el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item :command="null">📥 未整理</el-dropdown-item>
+              <el-dropdown-item v-for="p in allProjects" :key="p.id" :command="p.id"
+                                :disabled="p.id === projectId">📁 {{ p.name }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button size="small" text @click="clearSelection">取消选择</el-button>
+      </template>
+    </div>
+
     <draggable v-model="notes" item-key="id" handle=".drag-handle" @end="onDragEnd">
       <template #item="{ element: note }">
         <el-card class="note-card" shadow="never">
           <div class="note-main">
+            <el-checkbox :model-value="selected.includes(note.id)"
+                         @change="(v) => toggleSelect(note.id, v)" class="select-box" />
             <el-icon class="drag-handle"><Rank /></el-icon>
             <audio :src="withToken(note.audio_url)" controls preload="none" class="audio" />
             <span class="duration">{{ note.duration.toFixed(1) }}s</span>
@@ -61,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
@@ -73,7 +102,9 @@ const router = useRouter()
 const projectId = Number(route.params.id)
 const projectName = ref('')
 const notes = ref([])
+const allProjects = ref([])   // 所有项目,供批量移动下拉
 const loading = ref(false)
+const selected = ref([])      // 选中的 note id 列表
 
 function formatTime(t) {
   return new Date(t).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -81,11 +112,12 @@ function formatTime(t) {
 
 async function load() {
   loading.value = true
+  clearSelection()
   try {
     const list = await projectApi.notes(projectId)
     notes.value = list.map((n) => ({ ...n, _newAnnotation: '' }))
-    const projects = await projectApi.list()
-    projectName.value = projects.find((p) => p.id === projectId)?.name || '项目'
+    allProjects.value = await projectApi.list()
+    projectName.value = allProjects.value.find((p) => p.id === projectId)?.name || '项目'
   } finally {
     loading.value = false
   }
@@ -124,6 +156,55 @@ async function onDragEnd() {
   await Promise.all(notes.value.map((n, i) => noteApi.update(n.id, { sort_order: i + 1 })))
 }
 
+// ---------- 批量操作 ----------
+const isAllSelected = computed(() =>
+  notes.value.length > 0 && selected.value.length === notes.value.length
+)
+const isIndeterminate = computed(() =>
+  selected.value.length > 0 && selected.value.length < notes.value.length
+)
+
+function toggleAll(checked) {
+  selected.value = checked ? notes.value.map((n) => n.id) : []
+}
+
+function toggleSelect(id, checked) {
+  if (checked) {
+    if (!selected.value.includes(id)) selected.value.push(id)
+  } else {
+    selected.value = selected.value.filter((x) => x !== id)
+  }
+}
+
+function clearSelection() {
+  selected.value = []
+}
+
+function invertSelection() {
+  const selectedSet = new Set(selected.value)
+  selected.value = notes.value.filter((n) => !selectedSet.has(n.id)).map((n) => n.id)
+}
+
+async function batchDelete() {
+  const ids = [...selected.value]
+  await noteApi.batchRemove(ids)
+  ElMessage.success(`已删除 ${ids.length} 条`)
+  await load()
+}
+
+async function batchMove(targetProjectId) {
+  const ids = [...selected.value]
+  await noteApi.batchMove(ids, targetProjectId)
+  if (targetProjectId === null) {
+    ElMessage.success('已移回未整理')
+    router.push('/organize')
+  } else {
+    ElMessage.success('已批量移动')
+    // 移到别的项目后,当前项目的列表需要刷新(若目标就是当前项目,刷新即可)
+    await load()
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -133,6 +214,7 @@ onMounted(load)
 .header .left { display: flex; align-items: center; gap: 8px; }
 .note-card { margin-bottom: 12px; }
 .note-main { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.select-box { margin-right: 2px; }
 .drag-handle { cursor: grab; color: #c0c4cc; }
 .audio { height: 36px; flex: 0 0 280px; }
 .duration, .time { font-size: 12px; color: #909399; }
@@ -142,4 +224,10 @@ onMounted(load)
 .annotation-text { font-size: 13px; color: #606266; }
 .annotation-img { width: 80px; height: 80px; border-radius: 4px; }
 .annotation-add { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.batch-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px; padding: 10px 14px;
+  background: #ecf5ff; border: 1px solid #d9ecff; border-radius: 8px;
+}
+.batch-count { font-size: 13px; color: #409eff; font-weight: 500; }
 </style>

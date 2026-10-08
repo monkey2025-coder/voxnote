@@ -46,6 +46,8 @@ export const noteApi = {
   inbox: () => api.get('/notes/inbox'),
   update: (id, data) => api.put(`/notes/${id}`, data),
   remove: (id) => api.delete(`/notes/${id}`),
+  batchRemove: (ids) => api.post('/notes/batch/delete', { ids }),
+  batchMove: (ids, projectId) => api.post('/notes/batch/move', { ids, project_id: projectId }),
 }
 
 export const annotationApi = {

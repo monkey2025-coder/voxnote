@@ -59,6 +59,15 @@ class NoteUpdate(BaseModel):
     sort_order: Optional[int] = None
 
 
+class BatchDelete(BaseModel):
+    ids: list[int] = Field(min_length=1)
+
+
+class BatchMove(BaseModel):
+    ids: list[int] = Field(min_length=1)
+    project_id: Optional[int] = None  # null = 移回未整理池
+
+
 class NoteResponse(BaseModel):
     id: int
     project_id: Optional[int]

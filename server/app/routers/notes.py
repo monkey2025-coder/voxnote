@@ -7,10 +7,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.database import get_db
-from app.models import User, Project, Note
-from app.schemas import NoteUpdate, NoteResponse, NoteWithAnnotations, AnnotationResponse
+from app.models import User, Project, Note, Annotation
+from app.schemas import (
+    NoteUpdate, NoteResponse, NoteWithAnnotations, AnnotationResponse,
+    BatchDelete, BatchMove,
+)
 from app.dependencies.auth import get_current_user
-from app.core.config import AUDIO_DIR
+from app.core.config import AUDIO_DIR, IMAGE_DIR
 
 router = APIRouter(tags=["语音记录"])
 
@@ -155,20 +158,47 @@ def update_note(note_id: int, req: NoteUpdate, db: Session = Depends(get_db), cu
     return note_to_response(note)
 
 
-@router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, summary="删除记录(含音频与批注图片)")
-def delete_note(note_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    note = get_owned_note(note_id, db, current_user)
-    # 清理音频文件
+def _clean_note_files(note: Note) -> None:
+    """清理 note 对应的音频文件与批注图片文件(删除前后台共用)。"""
     audio_file = AUDIO_DIR / note.audio_path
     if audio_file.exists():
         audio_file.unlink()
-    # 清理批注图片文件
-    from app.models import Annotation
-    from app.core.config import IMAGE_DIR
     for a in note.annotations:
         if a.type == "image":
             img = IMAGE_DIR / a.content
             if img.exists():
                 img.unlink()
+
+
+@router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT, summary="删除记录(含音频与批注图片)")
+def delete_note(note_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    note = get_owned_note(note_id, db, current_user)
+    _clean_note_files(note)
     db.delete(note)
+    db.commit()
+
+
+@router.post("/notes/batch/delete", status_code=status.HTTP_204_NO_CONTENT, summary="批量删除语音(含音频与批注图片)")
+def batch_delete_notes(req: BatchDelete, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # 只能删自己的;不存在的 id 静默跳过(不报错,保证幂等)
+    notes = db.query(Note).filter(Note.id.in_(req.ids), Note.user_id == current_user.id).all()
+    if not notes:
+        return
+    for note in notes:
+        _clean_note_files(note)
+        db.delete(note)
+    db.commit()
+
+
+@router.post("/notes/batch/move", status_code=status.HTTP_204_NO_CONTENT, summary="批量移动语音到项目(project_id 传 null 移回未整理池)")
+def batch_move_notes(req: BatchMove, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # 校验目标项目属于当前用户
+    if req.project_id is not None:
+        get_owned_project(req.project_id, db, current_user)
+    notes = db.query(Note).filter(Note.id.in_(req.ids), Note.user_id == current_user.id).all()
+    if not notes:
+        return
+    for note in notes:
+        if note.project_id != req.project_id:
+            note.project_id = req.project_id
     db.commit()
