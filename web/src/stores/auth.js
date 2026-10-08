@@ -1,0 +1,31 @@
+import { defineStore } from 'pinia'
+import { authApi } from '../api'
+
+export const useAuthStore = defineStore('auth', {
+  state: () => ({
+    token: localStorage.getItem('token') || '',
+    username: localStorage.getItem('username') || '',
+  }),
+  actions: {
+    async login(username, password) {
+      const res = await authApi.login(username, password)
+      this.setAuth(res.access_token, username)
+    },
+    async register(username, password) {
+      const res = await authApi.register(username, password)
+      this.setAuth(res.access_token, username)
+    },
+    setAuth(token, username) {
+      this.token = token
+      this.username = username
+      localStorage.setItem('token', token)
+      localStorage.setItem('username', username)
+    },
+    logout() {
+      this.token = ''
+      this.username = ''
+      localStorage.removeItem('token')
+      localStorage.removeItem('username')
+    },
+  },
+})

@@ -1,0 +1,20 @@
+# Android
+android/.gradle/
+android/local.properties
+android/**/build/
+android/.idea/
+android/captures/
+*.iml
+
+# Web
+web/node_modules/
+web/dist/
+
+# Python / Server
+__pycache__/
+*.pyc
+server/db/
+server/uploads/
+
+# 系统与编辑器
+.DS_Store
