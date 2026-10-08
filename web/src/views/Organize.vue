@@ -32,7 +32,7 @@
                  draggable="true" @dragstart="dragging = note" @dragend="dragging = null; dragOver = null">
           <div class="row">
             <el-icon class="grip"><Rank /></el-icon>
-            <audio :src="note.audio_url" controls preload="none" class="audio" />
+            <audio :src="withToken(note.audio_url)" controls preload="none" class="audio" />
             <span class="duration">{{ note.duration.toFixed(1) }}s</span>
             <el-dropdown trigger="click" @command="(t) => moveNote(note, t)">
               <el-button size="small">移动到…</el-button>
@@ -59,7 +59,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
-import { projectApi, noteApi } from '../api'
+import { projectApi, noteApi, withToken } from '../api'
 
 const router = useRouter()
 const projects = ref([])

@@ -1,9 +1,8 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
-from app.core.config import UPLOAD_DIR, AUDIO_DIR, IMAGE_DIR
-from app.routers import auth, projects, notes, annotations, sync
+from app.core.config import AUDIO_DIR, IMAGE_DIR
+from app.routers import auth, projects, notes, annotations, sync, files
 
 # 建表与上传目录
 Base.metadata.create_all(bind=engine)
@@ -17,9 +16,7 @@ app.include_router(projects.router)
 app.include_router(notes.router)
 app.include_router(annotations.router)
 app.include_router(sync.router)
-
-# 静态文件:音频与批注图片
-app.mount("/files", StaticFiles(directory=str(UPLOAD_DIR)), name="files")
+app.include_router(files.router)  # 文件下载带认证,替代之前的公开静态挂载
 
 
 @app.get("/", summary="健康检查")

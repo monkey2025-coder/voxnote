@@ -14,7 +14,7 @@
         <el-card class="note-card" shadow="never">
           <div class="note-main">
             <el-icon class="drag-handle"><Rank /></el-icon>
-            <audio :src="note.audio_url" controls preload="none" class="audio" />
+            <audio :src="withToken(note.audio_url)" controls preload="none" class="audio" />
             <span class="duration">{{ note.duration.toFixed(1) }}s</span>
             <span class="time">{{ formatTime(note.recorded_at) }}</span>
             <div class="note-actions">
@@ -39,8 +39,8 @@
               </template>
               <template v-else>
                 <el-tag size="small" type="success">图片</el-tag>
-                <el-image :src="a.content" fit="cover" class="annotation-img"
-                          :preview-src-list="[a.content]" preview-teleported />
+                <el-image :src="withToken(a.content)" fit="cover" class="annotation-img"
+                          :preview-src-list="[withToken(a.content)]" preview-teleported />
               </template>
               <el-button size="small" text type="danger" @click="removeAnnotation(a)">×</el-button>
             </div>
@@ -66,7 +66,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
-import { projectApi, noteApi, annotationApi } from '../api'
+import { projectApi, noteApi, annotationApi, withToken } from '../api'
 
 const route = useRoute()
 const router = useRouter()

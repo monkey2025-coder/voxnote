@@ -64,4 +64,12 @@ export const annotationApi = {
   remove: (id) => api.delete(`/annotations/${id}`),
 }
 
+// 给 /files/... 的 URL 追加 token 查询参数(<audio>/<img> 标签无法带 header)
+export function withToken(url) {
+  if (!url) return url
+  const token = localStorage.getItem('token')
+  if (!token) return url
+  return `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+}
+
 export default api
