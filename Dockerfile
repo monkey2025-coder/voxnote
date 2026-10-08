@@ -23,7 +23,10 @@ RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r req
 ARG WHISPER_MODEL=small
 ENV WHISPER_MODEL=${WHISPER_MODEL} \
     WHISPER_CACHE=/code/models \
-    HF_ENDPOINT=https://hf-mirror.com
+    # HuggingFace 国内镜像,加速模型下载
+    HF_ENDPOINT=https://hf-mirror.com \
+    # 禁用 Xet 协议(它会绕过镜像直连官方服务器导致 401),强制走普通 HTTP
+    HF_HUB_DISABLE_XET=1
 RUN python -c "from faster_whisper import WhisperModel; WhisperModel('${WHISPER_MODEL}', device='cpu', compute_type='int8', download_root='/code/models')"
 
 COPY server/app ./app
