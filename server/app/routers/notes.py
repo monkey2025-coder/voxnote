@@ -85,6 +85,11 @@ async def create_note(
     abs_path.parent.mkdir(parents=True, exist_ok=True)
     abs_path.write_bytes(await file.read())
 
+    # 客户端没给文字时,服务端用 whisper 转写(短语音同步处理,失败则留空)
+    if not text.strip():
+        from app.core.transcribe import transcribe
+        text = transcribe(abs_path)
+
     max_order = db.query(func.max(Note.sort_order)).filter(
         Note.user_id == current_user.id,
         Note.project_id == project_id,

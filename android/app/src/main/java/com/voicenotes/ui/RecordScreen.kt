@@ -1,14 +1,9 @@
 package com.voicenotes.ui
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
 import android.os.Build
-import android.os.Bundle
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -21,10 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,27 +59,17 @@ fun RecordScreen(onDone: () -> Unit) {
 
     var recording by remember { mutableStateOf(false) }
     var elapsed by remember { mutableFloatStateOf(0f) }
-    var text by remember { mutableStateOf("") }
-    var partial by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<String?>(null) }
     var uploading by remember { mutableStateOf(false) }
-    var speechAvailable by remember { mutableStateOf(true) }
     var recordedAt by remember { mutableStateOf<String?>(null) }
 
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
-    var recognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
     var audioFile by remember { mutableStateOf<File?>(null) }
 
     fun stopRecording() {
-        recognizer?.let { runCatching { it.stopListening(); it.destroy() } }
-        recognizer = null
         recorder?.let { runCatching { it.stop(); it.release() } }
         recorder = null
         recording = false
-        if (partial.isNotBlank()) {
-            text = (text + partial).trim()
-            partial = ""
-        }
     }
 
     fun startRecording() {
@@ -107,45 +91,7 @@ fun RecordScreen(onDone: () -> Unit) {
         audioFile = file
         recording = true
         elapsed = 0f
-        text = ""
-        partial = ""
         recordedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date())
-
-        if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            val sr = SpeechRecognizer.createSpeechRecognizer(context)
-            sr.setRecognitionListener(object : RecognitionListener {
-                override fun onResults(results: Bundle) {
-                    val matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    if (!matches.isNullOrEmpty()) text = (text + matches[0]).trim()
-                    partial = ""
-                }
-
-                override fun onPartialResults(partialResults: Bundle) {
-                    val matches = partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    partial = matches?.firstOrNull() ?: ""
-                }
-
-                override fun onError(error: Int) {
-                    partial = ""
-                }
-
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {}
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.CHINESE.toLanguageTag())
-            }
-            sr.startListening(intent)
-            recognizer = sr
-        } else {
-            speechAvailable = false
-        }
     }
 
     // 计时器
@@ -160,7 +106,6 @@ fun RecordScreen(onDone: () -> Unit) {
 
     DisposableEffect(Unit) {
         onDispose {
-            recognizer?.let { runCatching { it.destroy() } }
             recorder?.let { runCatching { it.release() } }
         }
     }
@@ -170,50 +115,34 @@ fun RecordScreen(onDone: () -> Unit) {
             .fillMaxSize()
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            if (recording) "录音中…" else "语音记事",
+            if (recording) "正在录音…" else "按住即可录音",
             style = MaterialTheme.typography.headlineSmall,
         )
-        Spacer(Modifier.height(8.dp))
-        Text(String.format(Locale.US, "%.1f 秒", elapsed), style = MaterialTheme.typography.titleMedium)
-
-        if (!speechAvailable) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "当前设备不支持实时语音转写,可录完后手动输入文字",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-
         Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = text,
-            onValueChange = { text = it },
-            label = { Text("转写文字(可编辑)") },
-            supportingText = if (partial.isNotBlank()) ({ Text(partial) }) else null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+        Text(
+            String.format(Locale.US, "%.1f 秒", elapsed),
+            style = MaterialTheme.typography.displayMedium,
         )
-
         if (status != null) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Text(status!!, color = MaterialTheme.colorScheme.primary)
         }
+        Spacer(Modifier.height(32.dp))
 
-        Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (!recording) {
-                Button(
-                    onClick = {
-                        if (hasPermission) startRecording() else permLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    },
-                    modifier = Modifier.weight(1f),
-                    enabled = !uploading,
-                ) { Text(if (hasPermission) "开始录音" else "授权麦克风") }
+        if (!recording) {
+            Button(
+                onClick = {
+                    if (hasPermission) startRecording() else permLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                },
+                enabled = !uploading,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (hasPermission) "开始录音" else "授权麦克风") }
 
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = {
                         scope.launch {
@@ -223,10 +152,10 @@ fun RecordScreen(onDone: () -> Unit) {
                                 return@launch
                             }
                             uploading = true
-                            status = null
+                            status = "正在上传,文字由服务端自动转写…"
                             val item = PendingUpload(
                                 filePath = file.absolutePath,
-                                text = text.trim(),
+                                text = "",
                                 duration = elapsed,
                                 recordedAt = recordedAt
                                     ?: SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date()),
@@ -235,29 +164,32 @@ fun RecordScreen(onDone: () -> Unit) {
                             val ok = runCatching { PendingUploads.upload(item) }.getOrDefault(false)
                             if (ok) {
                                 file.delete()
-                                status = "已上传"
+                                audioFile = null
                                 onDone()
                             } else {
                                 PendingUploads.add(context, item)
                                 status = "网络异常,已保存到本地,稍后自动补传"
+                                uploading = false
                             }
-                            uploading = false
                         }
                     },
                     modifier = Modifier.weight(1f),
                     enabled = !uploading && audioFile != null,
-                ) { Text(if (uploading) "上传中…" else "保存上传") }
+                ) { Text(if (uploading) "上传中…" else "保存并上传") }
 
-                TextButton(onClick = onDone, enabled = !uploading) { Text("取消") }
-            } else {
-                Button(
-                    onClick = { stopRecording() },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    ),
-                ) { Text("停止录音") }
+                androidx.compose.material3.TextButton(
+                    onClick = onDone,
+                    enabled = !uploading,
+                ) { Text("取消") }
             }
+        } else {
+            Button(
+                onClick = { stopRecording() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                ),
+            ) { Text("停止录音") }
         }
     }
 }

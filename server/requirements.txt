@@ -4,3 +4,4 @@ sqlalchemy
 pyjwt
 bcrypt
 python-multipart
+faster-whisper
