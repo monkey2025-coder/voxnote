@@ -2,16 +2,15 @@ services:
   voxnote:
     build:
       context: .
-      # 想换模型就在这里改: tiny / base / small / medium
       args:
-        WHISPER_MODEL: small
+        WHISPER_MODEL: base
     ports:
       - "8000:8000"
     environment:
       # !! 生产环境必须改成随机长字符串 !!
       # 生成: openssl rand -hex 32
       SECRET_KEY: "change-me-to-a-random-string"
-      WHISPER_MODEL: small
+      WHISPER_MODEL: base
     volumes:
       - voxnote-db:/code/db
       - voxnote-uploads:/code/uploads

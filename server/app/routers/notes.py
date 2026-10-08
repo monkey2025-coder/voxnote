@@ -85,10 +85,10 @@ async def create_note(
     abs_path.parent.mkdir(parents=True, exist_ok=True)
     abs_path.write_bytes(await file.read())
 
-    # 客户端没给文字时,服务端用 whisper 转写(短语音同步处理,失败则留空)
-    if not text.strip():
-        from app.core.transcribe import transcribe
-        text = transcribe(abs_path)
+    # 客户端没给文字时,服务端用 whisper 转写;改异步:先存空 text 立即返回,
+    # 转写丢到单线程池后台串行跑,完成后回写 note.text(经 updated_at 触发 sync 增量下发)。
+    # 这样转写期间不会阻塞事件循环,login 等 IO 请求照常处理。
+    need_transcribe = not text.strip()
 
     max_order = db.query(func.max(Note.sort_order)).filter(
         Note.user_id == current_user.id,
@@ -106,6 +106,11 @@ async def create_note(
     db.add(note)
     db.commit()
     db.refresh(note)
+
+    if need_transcribe:
+        from app.core.transcribe import submit_transcribe
+        submit_transcribe(note.id, abs_path)
+
     return note_to_response(note)
 
 
