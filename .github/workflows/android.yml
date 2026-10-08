@@ -28,8 +28,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: 安装 Android SDK
-        uses: android-actions/setup-android@v3
+      # ubuntu-latest 已预装 Android SDK(android-35 / build-tools),无需额外安装
 
       - name: 安装 Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
