@@ -18,3 +18,5 @@ server/uploads/
 
 # 系统与编辑器
 .DS_Store
+
+./docker-compose.yml

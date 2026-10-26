@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.voicenotes.data.model.AgentTriggerRequest
 import com.voicenotes.data.network.ApiClient
 import com.voicenotes.data.repository.PendingUpload
 import com.voicenotes.data.repository.PendingUploads
@@ -175,7 +176,7 @@ fun RecordScreen(onDone: () -> Unit) {
                             status = null
                             agentStatus = "已提交，等待 Agent 执行…"
                             try {
-                                var current = ApiClient.agent.trigger(noteId, emptyMap<String, Any?>())
+                                var current = ApiClient.agent.trigger(noteId, AgentTriggerRequest())
                                 repeat(900) {
                                     val jobStatus = current.status
                                     agentStatus = when (jobStatus) {

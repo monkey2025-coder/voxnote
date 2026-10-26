@@ -13,8 +13,10 @@ import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
 import com.voicenotes.data.model.AgentJob
+import com.voicenotes.data.model.AgentTriggerRequest
 import com.voicenotes.data.model.AuthResponse
 import com.voicenotes.data.model.Note
+import com.voicenotes.data.model.NoteUpdateRequest
 import com.voicenotes.data.model.Project
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
@@ -47,12 +49,12 @@ interface NoteApi {
     ): Note
 
     @PUT("/notes/{id}")
-    suspend fun update(@Path("id") id: Int, @Body body: Map<String, Any?>): Note
+    suspend fun update(@Path("id") id: Int, @Body body: NoteUpdateRequest): Note
 }
 
 interface AgentApi {
     @POST("/notes/{id}/agent")
-    suspend fun trigger(@Path("id") id: Int, @Body body: Map<String, Any?>): AgentJob
+    suspend fun trigger(@Path("id") id: Int, @Body body: AgentTriggerRequest): AgentJob
 
     @GET("/notes/{id}/agent")
     suspend fun status(@Path("id") id: Int): AgentJob

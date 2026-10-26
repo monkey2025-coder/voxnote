@@ -60,7 +60,7 @@ npm run dev
 | `WHISPER_CACHE` | -         | 模型缓存目录                          |
 | `DATABASE_URL` | `sqlite:///.../db/app.db` | 数据库地址，测试时可指向临时 SQLite |
 | `UPLOAD_DIR` | `uploads` | 音频/图片上传目录 |
-| `ZY_WEB_BASE_URL` | `http://127.0.0.1:8000` | zy-web 地址（容器内用 `http://host.docker.internal:8000`） |
+| `ZY_WEB_BASE_URL` | `http://127.0.0.1:8000` | zy-web 地址（容器内建议用 `http://host.docker.internal:8010`，避免和 voxnote 的 8000 冲突） |
 | `ZY_WEB_ACCESS_KEY` | - | zy-web 访问密钥 |
 | `ZY_AGENT_ID` | `app_launcher` | 负责上线应用的 Agent id |
 | `SANDBOX_PUBLIC_HOST` | - | 沙箱应用对外访问的服务器 IP 或域名 |
@@ -78,6 +78,6 @@ npm run dev
 前置条件：
 
 1. zy-agent 仓库的沙箱容器已启动：`docker compose -f docker/sandbox-compose.yml up -d`。
-2. zy-web 在宿主机启动并监听 `0.0.0.0:8000`（配好访问密钥和防火墙），voxnote 容器通过 `host.docker.internal:8000` 访问。
+2. zy-web 在宿主机启动并监听 `0.0.0.0:8010`（配好访问密钥和防火墙），voxnote 容器通过 `host.docker.internal:8010` 访问；不要和 voxnote 共用 8000。
 3. voxnote 的 compose 已配置好 `SANDBOX_PUBLIC_HOST` 与防火墙端口 `18001-18204`。
 4. zy-agent 的 `data/agents/app_launcher.json` 已配置可用的模型。
