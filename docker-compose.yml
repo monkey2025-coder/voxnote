@@ -11,6 +11,20 @@ services:
       # 生成: openssl rand -hex 32
       SECRET_KEY: "change-me-to-a-random-string"
       WHISPER_MODEL: base
+      # ---------- Agent 编排 ----------
+      # zy-web 跑在宿主机；容器通过 host.docker.internal 访问（默认网络即可）
+      ZY_WEB_BASE_URL: "http://host.docker.internal:8000"
+      ZY_WEB_ACCESS_KEY: "change-me-to-zy-web-access-key"
+      ZY_AGENT_ID: "app_launcher"
+      # 沙箱应用对外访问地址：填服务器公网 IP 或域名
+      SANDBOX_PUBLIC_HOST: "change-me-to-server-ip"
+      SANDBOX_PUBLIC_SCHEME: "http"
+      SANDBOX_CONTAINERS: "zy-sandbox-1,zy-sandbox-2,zy-sandbox-3,zy-sandbox-4"
+      SANDBOX_PORTS: "8000,8001,8002"
+      SANDBOX_HOST_PORT_BASE: "18000"
+    # Linux 上让 host.docker.internal 指向宿主机；Docker Desktop 默认已支持
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - voxnote-db:/code/db
       - voxnote-uploads:/code/uploads

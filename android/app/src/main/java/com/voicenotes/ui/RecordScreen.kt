@@ -1,8 +1,10 @@
 package com.voicenotes.ui
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaRecorder
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.voicenotes.data.network.ApiClient
 import com.voicenotes.data.repository.PendingUpload
 import com.voicenotes.data.repository.PendingUploads
 import kotlinx.coroutines.delay
@@ -65,6 +68,11 @@ fun RecordScreen(onDone: () -> Unit) {
 
     var recorder by remember { mutableStateOf<MediaRecorder?>(null) }
     var audioFile by remember { mutableStateOf<File?>(null) }
+
+    var uploadedNoteId by remember { mutableStateOf<Int?>(null) }
+    var agentBusy by remember { mutableStateOf(false) }
+    var agentStatus by remember { mutableStateOf<String?>(null) }
+    var appUrl by remember { mutableStateOf<String?>(null) }
 
     fun stopRecording() {
         recorder?.let { runCatching { it.stop(); it.release() } }
@@ -132,7 +140,80 @@ fun RecordScreen(onDone: () -> Unit) {
         }
         Spacer(Modifier.height(32.dp))
 
-        if (!recording) {
+        if (uploadedNoteId != null) {
+            Text(
+                "录音已上传，服务端正在转写",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (agentStatus != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(agentStatus!!, color = MaterialTheme.colorScheme.primary)
+            }
+            if (appUrl != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(appUrl!!, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        appUrl?.let { url ->
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("打开应用") }
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val noteId = uploadedNoteId
+                    if (noteId != null) {
+                        scope.launch {
+                            agentBusy = true
+                            appUrl = null
+                            status = null
+                            agentStatus = "已提交，等待 Agent 执行…"
+                            try {
+                                var current = ApiClient.agent.trigger(noteId, emptyMap<String, Any?>())
+                                repeat(900) {
+                                    val jobStatus = current.status
+                                    agentStatus = when (jobStatus) {
+                                        "waiting_text" -> "等待服务端转写…"
+                                        "queued" -> "排队中…"
+                                        "running" -> "Agent 正在执行…"
+                                        "succeeded" -> "上线成功"
+                                        "failed" -> "执行失败：${current.error ?: "未知错误"}"
+                                        "cancelled" -> "已取消"
+                                        else -> "状态：$jobStatus"
+                                    }
+                                    if (jobStatus == "succeeded") {
+                                        appUrl = current.app_url
+                                    }
+                                    if (jobStatus == "succeeded" || jobStatus == "failed" || jobStatus == "cancelled") {
+                                        return@launch
+                                    }
+                                    delay(2000)
+                                    current = ApiClient.agent.status(noteId)
+                                }
+                                agentStatus = "等待超时，请稍后重试"
+                            } catch (e: Exception) {
+                                agentStatus = "触发失败：${e.message ?: "网络异常"}"
+                            } finally {
+                                agentBusy = false
+                            }
+                        }
+                    }
+                },
+                enabled = !agentBusy,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (agentBusy) "执行中…" else "交给 Agent 执行") }
+            Spacer(Modifier.height(8.dp))
+            androidx.compose.material3.TextButton(
+                onClick = onDone,
+                enabled = !agentBusy,
+            ) { Text("完成") }
+        } else if (!recording) {
             Button(
                 onClick = {
                     if (hasPermission) startRecording() else permLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -161,11 +242,13 @@ fun RecordScreen(onDone: () -> Unit) {
                                     ?: SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date()),
                                 projectId = null,
                             )
-                            val ok = runCatching { PendingUploads.upload(item) }.getOrDefault(false)
-                            if (ok) {
+                            val note = runCatching { PendingUploads.upload(item) }.getOrNull()
+                            if (note != null) {
                                 file.delete()
                                 audioFile = null
-                                onDone()
+                                uploadedNoteId = note.id
+                                uploading = false
+                                status = "已上传，服务端正在转写"
                             } else {
                                 PendingUploads.add(context, item)
                                 status = "网络异常,已保存到本地,稍后自动补传"

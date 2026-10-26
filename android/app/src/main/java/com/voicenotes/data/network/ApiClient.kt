@@ -12,6 +12,7 @@ import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.Path
+import com.voicenotes.data.model.AgentJob
 import com.voicenotes.data.model.AuthResponse
 import com.voicenotes.data.model.Note
 import com.voicenotes.data.model.Project
@@ -49,6 +50,14 @@ interface NoteApi {
     suspend fun update(@Path("id") id: Int, @Body body: Map<String, Any?>): Note
 }
 
+interface AgentApi {
+    @POST("/notes/{id}/agent")
+    suspend fun trigger(@Path("id") id: Int, @Body body: Map<String, Any?>): AgentJob
+
+    @GET("/notes/{id}/agent")
+    suspend fun status(@Path("id") id: Int): AgentJob
+}
+
 interface HealthApi {
     @GET("/")
     suspend fun ping(): Map<String, String>
@@ -68,12 +77,14 @@ object ApiClient {
         private set
     var notes: NoteApi
         private set
+    var agent: AgentApi
+        private set
     var health: HealthApi
         private set
 
     init {
-        val (a, p, n, h) = buildApis(DEFAULT_URL)
-        auth = a; projects = p; notes = n; health = h
+        val (a, p, n, g, h) = buildApis(DEFAULT_URL)
+        auth = a; projects = p; notes = n; agent = g; health = h
     }
 
     /** 切换服务器地址并(可选)更新 token,自动重建全部 API 实例 */
@@ -81,11 +92,11 @@ object ApiClient {
     fun configure(newBaseUrl: String? = null, newToken: String? = null) {
         newBaseUrl?.let { baseUrl = it.trimEnd('/') }
         newToken?.let { token = it }
-        val (a, p, n, h) = buildApis(baseUrl)
-        auth = a; projects = p; notes = n; health = h
+        val (a, p, n, g, h) = buildApis(baseUrl)
+        auth = a; projects = p; notes = n; agent = g; health = h
     }
 
-    private fun buildApis(url: String): Tuple4 {
+    private fun buildApis(url: String): Tuple5 {
         val authInterceptor = Interceptor { chain ->
             val req = chain.request()
             val newReq = if (!token.isNullOrEmpty()) {
@@ -107,18 +118,20 @@ object ApiClient {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        return Tuple4(
+        return Tuple5(
             retrofit.create(AuthApi::class.java),
             retrofit.create(ProjectApi::class.java),
             retrofit.create(NoteApi::class.java),
+            retrofit.create(AgentApi::class.java),
             retrofit.create(HealthApi::class.java),
         )
     }
 
-    private data class Tuple4(
+    private data class Tuple5(
         val first: AuthApi,
         val second: ProjectApi,
         val third: NoteApi,
-        val fourth: HealthApi,
+        val fourth: AgentApi,
+        val fifth: HealthApi,
     )
 }

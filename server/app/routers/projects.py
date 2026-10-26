@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, Project
+from app.models import User, Project, SandboxApp
 from app.schemas import ProjectCreate, ProjectUpdate, ProjectResponse
 from app.dependencies.auth import get_current_user
 
@@ -53,5 +53,13 @@ def update_project(project_id: int, req: ProjectUpdate, db: Session = Depends(ge
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT, summary="删除项目(含其下所有记录)")
 def delete_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = get_owned_project(project_id, db, current_user)
+    # 项目删除后，其绑定的沙箱应用不再可用，释放槽位
+    db.query(SandboxApp).filter(
+        SandboxApp.project_id == project.id,
+        SandboxApp.status == "active",
+    ).update(
+        {SandboxApp.status: "deleted", SandboxApp.project_id: None},
+        synchronize_session=False,
+    )
     db.delete(project)
     db.commit()

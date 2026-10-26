@@ -3,6 +3,7 @@ package com.voicenotes.data.repository
 import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.voicenotes.data.model.Note
 import com.voicenotes.data.network.ApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,9 +50,11 @@ object PendingUploads {
         if (items.isEmpty()) return 0
         val remaining = mutableListOf<PendingUpload>()
         for (item in items) {
-            val ok = runCatching { upload(item) }.getOrDefault(false)
-            if (ok) {
-                File(item.filePath).delete()
+            val f = File(item.filePath)
+            if (!f.exists()) continue // 文件丢失,直接丢弃
+            val note = runCatching { upload(item) }.getOrNull()
+            if (note != null) {
+                f.delete()
             } else {
                 remaining.add(item)
             }
@@ -60,9 +63,9 @@ object PendingUploads {
         return remaining.size
     }
 
-    suspend fun upload(item: PendingUpload): Boolean = withContext(Dispatchers.IO) {
+    suspend fun upload(item: PendingUpload): Note? = withContext(Dispatchers.IO) {
         val f = File(item.filePath)
-        if (!f.exists()) return@withContext true // 文件丢失,直接丢弃
+        if (!f.exists()) return@withContext null
         val part = MultipartBody.Part.createFormData(
             "file", f.name, f.asRequestBody("audio/mp4".toMediaType())
         )
@@ -72,6 +75,6 @@ object PendingUploads {
         val projectId = item.projectId?.toString()?.toRequestBody("text/plain".toMediaType())
         runCatching {
             ApiClient.notes.upload(part, projectId, text, duration, recordedAt)
-        }.isSuccess
+        }.getOrNull()
     }
 }

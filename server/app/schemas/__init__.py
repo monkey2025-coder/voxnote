@@ -103,3 +103,38 @@ class AnnotationResponse(BaseModel):
 
 class NoteWithAnnotations(NoteResponse):
     annotations: list[AnnotationResponse] = []
+
+
+# ---------- Agent ----------
+
+class AgentTriggerRequest(BaseModel):
+    instruction: Optional[str] = None
+    app_id: Optional[int] = None
+    app_name: Optional[str] = None
+
+
+class AgentJobResponse(BaseModel):
+    job_id: int
+    note_id: int
+    status: str
+    app_id: Optional[int] = None
+    app_name: Optional[str] = None
+    app_url: Optional[str] = None
+    answer: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+
+class SandboxAppResponse(BaseModel):
+    id: int
+    name: str
+    project_id: Optional[int]
+    container: str
+    container_port: int
+    host_port: int
+    url: str
+    status: str
+    created_at: datetime
+    updated_at: datetime

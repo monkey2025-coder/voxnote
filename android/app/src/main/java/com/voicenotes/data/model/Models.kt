@@ -24,6 +24,17 @@ data class Annotation(
     val content: String,
 )
 
+data class AgentJob(
+    val job_id: Int,
+    val note_id: Int,
+    val status: String,
+    val app_id: Int? = null,
+    val app_name: String? = null,
+    val app_url: String? = null,
+    val answer: String? = null,
+    val error: String? = null,
+)
+
 data class AuthResponse(
     val access_token: String,
     val token_type: String,

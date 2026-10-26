@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -5,15 +6,24 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
+from app.core.agent_worker import start_worker, stop_worker
 from app.core.config import BASE_DIR, AUDIO_DIR, IMAGE_DIR
-from app.routers import auth, projects, notes, annotations, sync, files
+from app.routers import auth, projects, notes, annotations, sync, files, agent
 
 # 建表与上传目录
 Base.metadata.create_all(bind=engine)
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 IMAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="语音记事本 Server", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    start_worker()
+    yield
+    stop_worker()
+
+
+app = FastAPI(title="语音记事本 Server", version="0.1.0", lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(projects.router)
@@ -21,6 +31,7 @@ app.include_router(notes.router)
 app.include_router(annotations.router)
 app.include_router(sync.router)
 app.include_router(files.router)  # 文件下载带认证,替代之前的公开静态挂载
+app.include_router(agent.router)
 
 
 # ---------- Web 前端托管(生产模式:由 FastAPI 直接提供 web/dist) ----------
