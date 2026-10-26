@@ -261,8 +261,9 @@ public_url: {app_url}
 3. {update_rule}
 4. 依赖优先使用镜像中已安装的包；需要额外依赖时再 pip install。
 5. 启动应用必须使用 background=True；不要自己拼接访问地址，以工具返回的 url 为准。
-6. run_python 的 code 参数就是应用自身的 main.py；禁止在 code 里用 subprocess/nohup/bash 再启动 main.py。
-7. 最终回答严格按以下格式输出：
+6. background=True 时 run_python 的 code 参数就是应用自身的 main.py；禁止在 code 里用 subprocess/nohup/bash 再启动 main.py。前台检查用 background=False，不会覆盖 main.py。
+7. 如果用户要求停止旧应用，不要扫描 /proc、ps、ss，也不要手动 kill；直接 background=True 覆盖启动，工具会自动按 app.pid 停止旧进程。
+8. 最终回答严格按以下格式输出：
 APP_URL: <sandbox 工具返回的 url>
 APP_NAME: <应用名>
 SUMMARY: <一句话说明做了什么>
